@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:6
+    container_name: underground_mongo
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+
+  backend:
+    image: node:18
+    container_name: underground_backend
+    working_dir: /app
+    volumes:
+      - ./backend:/app:delegated
+      - /app/node_modules
+      # Se preferir montar a chave do Firebase (serviceAccountKey.json) no container:
+      # - ./backend/src/config/serviceAccountKey.json:/app/src/config/serviceAccountKey.json:ro
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env.backend
+    depends_on:
+      - mongo
+    command: sh -c "npm install --silent && npm run dev"
+    restart: unless-stopped
+
+  frontend:
+    image: node:18
+    container_name: underground_frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app:delegated
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.frontend
+    depends_on:
+      - backend
+    command: sh -c "npm install --silent && npm run dev"
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
