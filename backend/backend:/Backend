@@ -1,0 +1,598 @@
+backend/
+├── src/
+│   ├── config/
+│   │   ├── firebase.js
+│   │   ├── mongodb.js
+│   │   └── serviceAccountKey.json  (arquivo baixado do Firebase)
+│   ├── models/
+│   │   ├── User.js
+│   │   ├── Set.js
+│   │   └── Comment.js
+│   ├── middleware/
+│   │   ├── auth.js
+│   │   └── upload.js
+│   ├── routes/
+│   │   ├── auth.js
+│   │   ├── users.js
+│   │   ├── sets.js
+│   │   ├── comments.js
+│   │   └── admin.js
+│   ├── controllers/
+│   │   └── (opcional, vou colocar a lógica diretamente nas rotas para simplificar)
+│   └── utils/
+│       └── helpers.js
+├── .env
+├── package.json
+└── server.js
+{
+  "name": "underground-techno-backend",
+  "version": "1.0.0",
+  "description": "API para plataforma Underground Techno",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "firebase-admin": "^11.11.0",
+    "gridfs-stream": "^1.1.1",
+    "mongoose": "^7.5.0",
+    "multer": "^1.4.5",
+    "multer-gridfs-storage": "^5.0.2",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
+PORT=5000
+MONGO_URI=mongodb://localhost:27017/underground-techno
+# Se for usar MongoDB Atlas, use a string de conexão com usuário/senha
+# EX: mongodb+srv://usuario:senha@cluster.mongodb.net/underground-techno
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const mongoose = require('mongoose');
+
+// Importar rotas
+const authRoutes = require('./src/routes/auth');
+const userRoutes = require('./src/routes/users');
+const setRoutes = require('./src/routes/sets');
+const commentRoutes = require('./src/routes/comments');
+const adminRoutes = require('./src/routes/admin');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Conectar MongoDB
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('✅ MongoDB conectado'))
+  .catch(err => console.log('❌ Erro no MongoDB:', err));
+
+// Rotas
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/sets', setRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/admin', adminRoutes);
+
+// Rota para servir arquivos do GridFS (será configurada nas rotas de set)
+// A rota /api/files/:filename será implementada no sets.js
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`🚀 Backend rodando na porta ${PORT}`));
+const admin = require('firebase-admin');
+
+// Verifica se já foi inicializado para evitar duplicidade
+if (!admin.apps.length) {
+  try {
+    // Tenta carregar a chave do arquivo JSON
+    const serviceAccount = require('./serviceAccountKey.json');
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+  } catch (error) {
+    // Fallback para variáveis de ambiente (útil em produção)
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      }),
+    });
+  }
+}
+
+const auth = admin.auth();
+module.exports = { auth };
+const mongoose = require('mongoose');
+
+const getGridFSBucket = () => {
+  const conn = mongoose.connection;
+  if (!conn || !conn.db) throw new Error('MongoDB não conectado');
+  return new mongoose.mongo.GridFSBucket(conn.db, { bucketName: 'uploads' });
+};
+
+module.exports = { getGridFSBucket };
+const mongoose = require('mongoose');
+
+const UserSchema = new mongoose.Schema({
+  uid: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true },
+  displayName: { type: String, default: 'Usuário' },
+  photoURL: { type: String, default: '/default-avatar.png' },
+  bannerURL: { type: String, default: '/default-banner.jpg' },
+  bio: { type: String, maxlength: 500, default: '' },
+  artisticName: { type: String, default: '' },
+  instagram: { type: String, default: '' },
+  soundcloud: { type: String, default: '' },
+  otherSocial: { type: Map, of: String, default: {} },
+  isAdmin: { type: Boolean, default: false },
+  isOfficial: { type: Boolean, default: false },
+  stats: {
+    totalLikes: { type: Number, default: 0 },
+    totalPlays: { type: Number, default: 0 },
+    totalSets: { type: Number, default: 0 },
+  },
+  createdAt: { type: Date, default: Date.now },
+});
+
+module.exports = mongoose.model('User', UserSchema);
+const mongoose = require('mongoose');
+
+const SetSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  title: { type: String, required: true },
+  description: { type: String, default: '' },
+  genre: { type: String, required: true },
+  tags: { type: [String], default: [] },
+  coverImage: { type: String, default: '/default-cover.jpg' },
+  audioFile: { type: String, required: true },
+  videoFile: { type: String },
+  duration: { type: Number, default: 0 },
+  plays: { type: Number, default: 0 },
+  likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  comments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }],
+  favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  isFeatured: { type: Boolean, default: false },
+  isApproved: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now },
+});
+
+module.exports = mongoose.model('Set', SetSchema);
+const mongoose = require('mongoose');
+
+const CommentSchema = new mongoose.Schema({
+  set: { type: mongoose.Schema.Types.ObjectId, ref: 'Set', required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  text: { type: String, required: true },
+  replies: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }],
+  createdAt: { type: Date, default: Date.now },
+});
+
+module.exports = mongoose.model('Comment', CommentSchema);
+const { auth } = require('../config/firebase');
+const User = require('../models/User');
+
+// Verifica se o token JWT é válido
+const verifyToken = async (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Token não fornecido' });
+
+  try {
+    const decoded = await auth.verifyIdToken(token);
+    req.user = decoded; // uid, email, etc.
+    
+    // Sincroniza/atualiza o usuário no banco de dados
+    let dbUser = await User.findOne({ uid: decoded.uid });
+    if (!dbUser) {
+      dbUser = new User({
+        uid: decoded.uid,
+        email: decoded.email,
+        displayName: decoded.name || 'Usuário',
+        photoURL: decoded.picture || '/default-avatar.png',
+        // Se for o admin oficial, já configura aqui
+        isAdmin: decoded.email === 'purgatoriounder@gmail.com',
+        isOfficial: decoded.email === 'purgatoriounder@gmail.com',
+      });
+      await dbUser.save();
+    } else {
+      // Atualiza se mudou
+      if (decoded.email === 'purgatoriounder@gmail.com') {
+        dbUser.isAdmin = true;
+        dbUser.isOfficial = true;
+        await dbUser.save();
+      }
+    }
+    req.dbUser = dbUser; // Guarda o ObjectId e dados adicionais
+    next();
+  } catch (err) {
+    return res.status(403).json({ error: 'Token inválido' });
+  }
+};
+
+// Verifica se é admin (deve ser usado após verifyToken)
+const isAdmin = (req, res, next) => {
+  if (!req.dbUser || !req.dbUser.isAdmin) {
+    return res.status(403).json({ error: 'Acesso administrativo negado' });
+  }
+  next();
+};
+
+module.exports = { verifyToken, isAdmin };
+const multer = require('multer');
+const { GridFsStorage } = require('multer-gridfs-storage');
+const crypto = require('crypto');
+const path = require('path');
+
+const storage = new GridFsStorage({
+  url: process.env.MONGO_URI,
+  file: (req, file) => {
+    return new Promise((resolve, reject) => {
+      crypto.randomBytes(16, (err, buf) => {
+        if (err) return reject(err);
+        const filename = buf.toString('hex') + path.extname(file.originalname);
+        resolve({
+          filename: filename,
+          bucketName: 'uploads',
+        });
+      });
+    });
+  },
+});
+
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 1024 * 1024 * 500 } // 500MB para sets longos
+});
+
+module.exports = upload;
+const express = require('express');
+const router = express.Router();
+const { verifyToken } = require('../middleware/auth');
+
+router.get('/verify', verifyToken, async (req, res) => {
+  res.json({ 
+    user: req.dbUser,
+    firebaseUser: req.user 
+  });
+});
+
+module.exports = router;
+const express = require('express');
+const router = express.Router();
+const User = require('../models/User');
+const Set = require('../models/Set');
+const { verifyToken } = require('../middleware/auth');
+
+// Buscar perfil público
+router.get('/:id', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-__v');
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Buscar sets de um usuário
+router.get('/:id/sets', async (req, res) => {
+  try {
+    const sets = await Set.find({ userId: req.params.id, isApproved: true })
+                          .sort({ createdAt: -1 });
+    res.json(sets);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Atualizar perfil (próprio usuário)
+router.put('/:id', verifyToken, async (req, res) => {
+  try {
+    if (req.dbUser._id.toString() !== req.params.id) {
+      return res.status(403).json({ error: 'Você só pode editar seu próprio perfil' });
+    }
+    const { displayName, artisticName, bio, instagram, soundcloud, otherSocial, bannerURL, photoURL } = req.body;
+    const updated = await User.findByIdAndUpdate(req.params.id, {
+      displayName, artisticName, bio, instagram, soundcloud, otherSocial, bannerURL, photoURL
+    }, { new: true });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;
+const express = require('express');
+const router = express.Router();
+const upload = require('../middleware/upload');
+const { verifyToken } = require('../middleware/auth');
+const Set = require('../models/Set');
+const User = require('../models/User');
+const { getGridFSBucket } = require('../config/mongodb');
+
+// FEED de sets
+router.get('/feed', async (req, res) => {
+  try {
+    const sets = await Set.find({ isApproved: true })
+                          .populate('userId', 'displayName photoURL isOfficial')
+                          .sort({ createdAt: -1 })
+                          .limit(20);
+    res.json(sets);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Detalhes de um set
+router.get('/:id', async (req, res) => {
+  try {
+    const set = await Set.findById(req.params.id)
+                         .populate('userId', 'displayName photoURL isOfficial')
+                         .populate({
+                           path: 'comments',
+                           populate: { path: 'userId', select: 'displayName photoURL' }
+                         });
+    if (!set) return res.status(404).json({ error: 'Set não encontrado' });
+    res.json(set);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Upload de set (protegido)
+router.post('/upload', verifyToken, upload.fields([
+  { name: 'audio', maxCount: 1 },
+  { name: 'cover', maxCount: 1 },
+  { name: 'video', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const { title, description, genre, tags } = req.body;
+    const user = req.dbUser;
+
+    if (!req.files['audio']) {
+      return res.status(400).json({ error: 'Arquivo de áudio é obrigatório' });
+    }
+
+    const audioFile = req.files['audio'][0].filename;
+    const coverFile = req.files['cover'] ? req.files['cover'][0].filename : null;
+    const videoFile = req.files['video'] ? req.files['video'][0].filename : null;
+
+    const newSet = new Set({
+      userId: user._id,
+      title,
+      description,
+      genre,
+      tags: tags ? tags.split(',').map(t => t.trim()) : [],
+      coverImage: coverFile ? `/api/files/${coverFile}` : null,
+      audioFile: `/api/files/${audioFile}`,
+      videoFile: videoFile ? `/api/files/${videoFile}` : null,
+    });
+
+    await newSet.save();
+    
+    // Atualiza estatísticas do usuário
+    user.stats.totalSets += 1;
+    await user.save();
+
+    res.status(201).json(newSet);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Servir arquivos do GridFS
+router.get('/files/:filename', async (req, res) => {
+  try {
+    const bucket = getGridFSBucket();
+    const downloadStream = bucket.openDownloadStreamByName(req.params.filename);
+    downloadStream.on('error', () => res.status(404).json({ error: 'Arquivo não encontrado' }));
+    downloadStream.pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Curtir / Descurtir
+router.post('/:id/like', verifyToken, async (req, res) => {
+  try {
+    const set = await Set.findById(req.params.id);
+    if (!set) return res.status(404).json({ error: 'Set não encontrado' });
+
+    const userId = req.dbUser._id;
+    const index = set.likes.indexOf(userId);
+    
+    if (index > -1) {
+      set.likes.splice(index, 1);
+    } else {
+      set.likes.push(userId);
+    }
+    await set.save();
+    res.json({ likes: set.likes.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Favoritar / Desfavoritar
+router.post('/:id/favorite', verifyToken, async (req, res) => {
+  try {
+    const set = await Set.findById(req.params.id);
+    if (!set) return res.status(404).json({ error: 'Set não encontrado' });
+
+    const userId = req.dbUser._id;
+    const index = set.favorites.indexOf(userId);
+    
+    if (index > -1) {
+      set.favorites.splice(index, 1);
+    } else {
+      set.favorites.push(userId);
+    }
+    await set.save();
+    res.json({ favorites: set.favorites.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Incrementar plays
+router.post('/:id/play', async (req, res) => {
+  try {
+    const set = await Set.findByIdAndUpdate(req.params.id, { $inc: { plays: 1 } }, { new: true });
+    res.json({ plays: set.plays });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;
+const express = require('express');
+const router = express.Router();
+const { verifyToken } = require('../middleware/auth');
+const Comment = require('../models/Comment');
+const Set = require('../models/Set');
+
+// Adicionar comentário
+router.post('/:setId', verifyToken, async (req, res) => {
+  try {
+    const { text } = req.body;
+    const set = await Set.findById(req.params.setId);
+    if (!set) return res.status(404).json({ error: 'Set não encontrado' });
+
+    const comment = new Comment({
+      set: set._id,
+      userId: req.dbUser._id,
+      text,
+    });
+    await comment.save();
+
+    set.comments.push(comment._id);
+    await set.save();
+
+    // Popula o usuário para retornar
+    await comment.populate('userId', 'displayName photoURL');
+    res.status(201).json(comment);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Responder comentário
+router.post('/:commentId/reply', verifyToken, async (req, res) => {
+  try {
+    const { text } = req.body;
+    const parentComment = await Comment.findById(req.params.commentId);
+    if (!parentComment) return res.status(404).json({ error: 'Comentário não encontrado' });
+
+    const reply = new Comment({
+      set: parentComment.set,
+      userId: req.dbUser._id,
+      text,
+    });
+    await reply.save();
+
+    parentComment.replies.push(reply._id);
+    await parentComment.save();
+
+    await reply.populate('userId', 'displayName photoURL');
+    res.status(201).json(reply);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Deletar comentário (admin ou dono)
+router.delete('/:id', verifyToken, async (req, res) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+    if (!comment) return res.status(404).json({ error: 'Comentário não encontrado' });
+    
+    if (comment.userId.toString() !== req.dbUser._id.toString() && !req.dbUser.isAdmin) {
+      return res.status(403).json({ error: 'Sem permissão' });
+    }
+
+    await Comment.deleteOne({ _id: req.params.id });
+    // Remove referência do set
+    await Set.updateOne({ _id: comment.set }, { $pull: { comments: comment._id } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;
+const express = require('express');
+const router = express.Router();
+const { verifyToken, isAdmin } = require('../middleware/auth');
+const User = require('../models/User');
+const Set = require('../models/Set');
+const Comment = require('../models/Comment');
+
+// Estatísticas gerais
+router.get('/stats', verifyToken, isAdmin, async (req, res) => {
+  const users = await User.countDocuments();
+  const sets = await Set.countDocuments();
+  const comments = await Comment.countDocuments();
+  res.json({ users, sets, comments });
+});
+
+// Listar usuários
+router.get('/users', verifyToken, isAdmin, async (req, res) => {
+  const users = await User.find().select('-__v').sort({ createdAt: -1 });
+  res.json(users);
+});
+
+// Tornar oficial / remover oficial
+router.patch('/users/:id/official', verifyToken, isAdmin, async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
+  user.isOfficial = !user.isOfficial;
+  await user.save();
+  res.json({ isOfficial: user.isOfficial });
+});
+
+// Deletar usuário
+router.delete('/users/:id', verifyToken, isAdmin, async (req, res) => {
+  await User.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+
+// Listar sets (com paginação)
+router.get('/sets', verifyToken, isAdmin, async (req, res) => {
+  const sets = await Set.find().populate('userId', 'displayName email').sort({ createdAt: -1 });
+  res.json(sets);
+});
+
+// Destacar/Remover destaque
+router.patch('/sets/:id/feature', verifyToken, isAdmin, async (req, res) => {
+  const set = await Set.findById(req.params.id);
+  if (!set) return res.status(404).json({ error: 'Set não encontrado' });
+  set.isFeatured = !set.isFeatured;
+  await set.save();
+  res.json({ isFeatured: set.isFeatured });
+});
+
+// Deletar set (moderação)
+router.delete('/sets/:id', verifyToken, isAdmin, async (req, res) => {
+  await Set.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+
+// Listar comentários
+router.get('/comments', verifyToken, isAdmin, async (req, res) => {
+  const comments = await Comment.find().populate('userId', 'displayName email').populate('set', 'title');
+  res.json(comments);
+});
+
+// Deletar comentário (moderação)
+router.delete('/comments/:id', verifyToken, isAdmin, async (req, res) => {
+  await Comment.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+
+module.exports = router;
