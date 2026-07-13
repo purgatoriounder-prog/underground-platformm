@@ -1,0 +1,441 @@
+frontend/
+├── pages/
+│   ├── admin/
+│   │   ├── index.js (Dashboard)
+│   │   ├── users.js
+│   │   └── sets.js
+│   ├── profile/
+│   │   ├── [id].js
+│   │   └── edit.js
+│   ├── set/
+│   │   └── [id].js
+│   ├── upload.js
+│   ├── index.js (Home/Feed)
+│   ├── _app.js
+│   └── _document.js
+├── components/
+│   ├── SetCard.js
+│   ├── AudioPlayer.js
+│   ├── CommentList.js
+│   ├── AdminNav.js
+│   └── Layout.js
+├── hooks/
+│   └── useAuth.js
+├── lib/
+│   ├── firebase.js
+│   └── api.js
+├── styles/
+│   └── globals.css
+├── .env.local
+├── package.json
+├── tailwind.config.js
+└── next.config.js
+{
+  "name": "underground-techno-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "axios": "^1.5.0",
+    "firebase": "^10.4.0",
+    "lucide-react": "^0.279.0",
+    "next": "13.4.19",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.15",
+    "postcss": "^8.4.29",
+    "tailwindcss": "^3.3.3"
+  }
+}
+NEXT_PUBLIC_FIREBASE_API_KEY=COLE_AQUI_SUA_API_KEY
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=COLE_AQUI_SEU_AUTH_DOMAIN
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=COLE_AQUI_SEU_PROJECT_ID
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=COLE_AQUI_SEU_STORAGE_BUCKET
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=COLE_AQUI_SEU_SENDER_ID
+NEXT_PUBLIC_FIREBASE_APP_ID=COLE_AQUI_SEU_APP_ID
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+module.exports = {
+  content: [
+    './pages/**/*.{js,ts,jsx,tsx}',
+    './components/**/*.{js,ts,jsx,tsx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        red: { 600: '#dc2626', 700: '#b91c1c', 800: '#991b1b' },
+        gray: { 800: '#1f1f1f', 900: '#121212' },
+      },
+    },
+  },
+  plugins: [],
+}@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-black text-gray-200;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #1a1a1a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #dc2626;
+    border-radius: 4px;
+  }
+}
+import { initializeApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+
+export { auth, provider, signInWithPopup, signOut };
+import axios from 'axios';
+import { auth } from './firebase';
+
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
+});
+
+api.interceptors.request.use(async (config) => {
+  const user = auth.currentUser;
+  if (user) {
+    const token = await user.getIdToken();
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export default api;
+import { useEffect, useState } from 'react';
+import { auth, signInWithPopup, provider, signOut as firebaseSignOut } from '../lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+
+export function useAuth() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setUser({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+        });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  const signInWithGoogle = async () => {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const signOut = async () => {
+    await firebaseSignOut();
+  };
+
+  return { user, loading, signInWithGoogle, signOut };
+}
+import { useState, useRef } from 'react';
+import Link from 'next/link';
+import { Heart, Play, Pause, Share2, MessageCircle } from 'lucide-react';
+import api from '../lib/api';
+import { useAuth } from '../hooks/useAuth';
+
+export default function SetCard({ set, onUpdate }) {
+  const { user } = useAuth();
+  const [playing, setPlaying] = useState(false);
+  const [likes, setLikes] = useState(set.likes?.length || 0);
+  const [liked, setLiked] = useState(set.likes?.includes(user?._id) || false);
+  const audioRef = useRef(null);
+
+  const togglePlay = () => {
+    if (audioRef.current) {
+      if (playing) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+        // Incrementa plays
+        api.post(`/sets/${set._id}/play`);
+      }
+      setPlaying(!playing);
+    }
+  };
+
+  const handleLike = async () => {
+    if (!user) return alert('Faça login para curtir');
+    await api.post(`/sets/${set._id}/like`);
+    setLiked(!liked);
+    setLikes(liked ? likes - 1 : likes + 1);
+  };
+
+  return (
+    <div className="bg-gray-900 rounded-lg overflow-hidden shadow-lg hover:shadow-red-900/20 transition-all">
+      <div className="relative h-48 bg-gray-800">
+        {set.coverImage && (
+          <img src={set.coverImage} alt={set.title} className="w-full h-full object-cover" />
+        )}
+        <button
+          onClick={togglePlay}
+          className="absolute bottom-4 left-4 bg-red-600 p-3 rounded-full hover:bg-red-700 transition"
+        >
+          {playing ? <Pause size={20} /> : <Play size={20} />}
+        </button>
+        {set.userId?.isOfficial && (
+          <span className="absolute top-2 right-2 bg-red-600 text-xs px-2 py-1 rounded-full">OFICIAL</span>
+        )}
+        <audio ref={audioRef} src={set.audioFile} onEnded={() => setPlaying(false)} />
+      </div>
+
+      <div className="p-4">
+        <Link href={`/set/${set._id}`}>
+          <h3 className="text-xl font-bold hover:text-red-400 transition truncate">{set.title}</h3>
+        </Link>
+        <Link href={`/profile/${set.userId?._id}`}>
+          <p className="text-gray-400 text-sm hover:text-red-400">@{set.userId?.displayName || 'Usuário'}</p>
+        </Link>
+        <p className="text-gray-500 text-xs">{set.genre} • {set.tags?.join(', ')}</p>
+        
+        <div className="flex justify-between items-center mt-3 text-gray-400">
+          <div className="flex gap-4">
+            <button onClick={handleLike} className={`flex items-center gap-1 hover:text-red-400 ${liked ? 'text-red-600' : ''}`}>
+              <Heart size={18} /> {likes}
+            </button>
+            <button className="flex items-center gap-1 hover:text-red-400">
+              <MessageCircle size={18} /> {set.comments?.length || 0}
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/set/${set._id}`)} className="hover:text-red-400">
+              <Share2 size={18} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+import { useEffect, useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
+import SetCard from '../components/SetCard';
+import api from '../lib/api';
+import Link from 'next/link';
+
+export default function Home() {
+  const { user, signInWithGoogle, signOut } = useAuth();
+  const [sets, setSets] = useState([]);
+  const isAdmin = user?.email === 'purgatoriounder@gmail.com';
+
+  useEffect(() => {
+    api.get('/sets/feed').then(res => setSets(res.data));
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <header className="bg-gray-900 border-b border-red-900 p-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-red-600 tracking-tight">UNDERGROUND TECHNO</h1>
+            <p className="text-gray-500 text-sm">Plataforma social de sets</p>
+          </div>
+          <div className="flex items-center gap-4">
+            {isAdmin && (
+              <Link href="/admin" className="bg-red-800 px-3 py-1 rounded text-sm hover:bg-red-700">
+                Admin
+              </Link>
+            )}
+            {user ? (
+              <div className="flex items-center gap-3">
+                <Link href={`/profile/${user.uid}`}>
+                  <img src={user.photoURL} className="w-8 h-8 rounded-full border border-red-600" />
+                </Link>
+                <button onClick={signOut} className="text-sm text-gray-400 hover:text-red-400">Sair</button>
+                <Link href="/upload" className="bg-red-600 px-4 py-2 rounded text-sm hover:bg-red-700">
+                  + Set
+                </Link>
+              </div>
+            ) : (
+              <button onClick={signInWithGoogle} className="bg-red-600 px-4 py-2 rounded hover:bg-red-700">
+                Entrar com Google
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto p-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sets.map(set => (
+            <SetCard key={set._id} set={set} />
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+}
+import { useState } from 'react';
+import { useRouter } from 'next/router';
+import { useAuth } from '../hooks/useAuth';
+import api from '../lib/api';
+
+export default function Upload() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    genre: 'Techno',
+    tags: '',
+  });
+  const [audio, setAudio] = useState(null);
+  const [cover, setCover] = useState(null);
+
+  if (!user) {
+    return <div className="text-white p-4">Faça login para enviar um set.</div>;
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!audio) return alert('Selecione um arquivo de áudio');
+
+    setLoading(true);
+    const formData = new FormData();
+    formData.append('title', form.title);
+    formData.append('description', form.description);
+    formData.append('genre', form.genre);
+    formData.append('tags', form.tags);
+    formData.append('audio', audio);
+    if (cover) formData.append('cover', cover);
+
+    try {
+      await api.post('/sets/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      router.push('/');
+    } catch (err) {
+      alert('Erro ao enviar: ' + err.response?.data?.error || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-black text-white p-8">
+      <div className="max-w-2xl mx-auto bg-gray-900 p-8 rounded-lg">
+        <h1 className="text-2xl font-bold text-red-500 mb-6">Enviar novo Set</h1>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input className="w-full bg-gray-800 p-3 rounded" placeholder="Título" value={form.title} onChange={e => setForm({...form, title: e.target.value})} required />
+          <textarea className="w-full bg-gray-800 p-3 rounded" placeholder="Descrição" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+          <select className="w-full bg-gray-800 p-3 rounded" value={form.genre} onChange={e => setForm({...form, genre: e.target.value})}>
+            <option>Techno</option>
+            <option>Hard Techno</option>
+            <option>Industrial Techno</option>
+            <option>Acid Techno</option>
+            <option>Deep Techno</option>
+            <option>Minimal</option>
+          </select>
+          <input className="w-full bg-gray-800 p-3 rounded" placeholder="Tags (separadas por vírgula)" value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} />
+          <div>
+            <label className="block text-gray-400 mb-1">Áudio (MP3, WAV) *</label>
+            <input type="file" accept="audio/*" onChange={e => setAudio(e.target.files[0])} required />
+          </div>
+          <div>
+            <label className="block text-gray-400 mb-1">Imagem de Capa</label>
+            <input type="file" accept="image/*" onChange={e => setCover(e.target.files[0])} />
+          </div>
+          <button type="submit" disabled={loading} className="w-full bg-red-600 p-3 rounded font-bold hover:bg-red-700 disabled:opacity-50">
+            {loading ? 'Enviando...' : 'Publicar Set'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+import { useEffect, useState } from 'react';
+import { useAuth } from '../../hooks/useAuth';
+import api from '../../lib/api';
+import AdminNav from '../../components/AdminNav';
+
+export default function AdminDashboard() {
+  const { user } = useAuth();
+  const [stats, setStats] = useState({ users: 0, sets: 0, comments: 0 });
+
+  useEffect(() => {
+    if (user?.email === 'purgatoriounder@gmail.com') {
+      api.get('/admin/stats').then(res => setStats(res.data));
+    }
+  }, [user]);
+
+  if (!user || user.email !== 'purgatoriounder@gmail.com') {
+    return <div className="text-white p-4">Acesso negado.</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <AdminNav />
+      <div className="p-6">
+        <h1 className="text-2xl font-bold text-red-500">Painel Administrativo</h1>
+        <div className="grid grid-cols-3 gap-4 mt-6">
+          <div className="bg-gray-800 p-6 rounded-lg text-center">
+            <p className="text-3xl font-bold">{stats.users}</p>
+            <p className="text-gray-400">Usuários</p>
+          </div>
+          <div className="bg-gray-800 p-6 rounded-lg text-center">
+            <p className="text-3xl font-bold">{stats.sets}</p>
+            <p className="text-gray-400">Sets</p>
+          </div>
+          <div className="bg-gray-800 p-6 rounded-lg text-center">
+            <p className="text-3xl font-bold">{stats.comments}</p>
+            <p className="text-gray-400">Comentários</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+import Link from 'next/link';
+import { useAuth } from '../hooks/useAuth';
+
+export default function AdminNav() {
+  const { user } = useAuth();
+  if (!user || user.email !== 'purgatoriounder@gmail.com') return null;
+
+  return (
+    <div className="bg-gray-900 p-3 flex gap-6 text-sm border-b border-red-800">
+      <Link href="/admin" className="hover:text-red-400">Dashboard</Link>
+      <Link href="/admin/users" className="hover:text-red-400">Usuários</Link>
+      <Link href="/admin/sets" className="hover:text-red-400">Sets</Link>
+    </div>
+  );
+}
