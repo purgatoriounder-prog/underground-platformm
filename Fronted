@@ -5,7 +5,6 @@ import { useAuth } from '../../hooks/useAuth';
 import api from '../../lib/api';
 import SetCard from '../../components/SetCard';
 import Button from '../../components/Button';
-
 export default function Profile() {
   const router = useRouter();
   const { id } = router.query;
@@ -13,7 +12,6 @@ export default function Profile() {
   const [profileUser, setProfileUser] = useState(null);
   const [sets, setSets] = useState([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     if (id) {
       Promise.all([
@@ -26,17 +24,13 @@ export default function Profile() {
       }).catch(() => setLoading(false));
     }
   }, [id]);
-
   if (loading) {
     return <div className="text-white p-4">Carregando...</div>;
   }
-
   if (!profileUser) {
     return <div className="text-white p-4">Usuário não encontrado.</div>;
   }
-
   const isOwnProfile = user?.uid === profileUser.uid;
-
   return (
     <div className="bg-black text-white min-h-screen">
       {/* Banner */}
@@ -78,14 +72,12 @@ export default function Profile() {
           )}
         </div>
       </div>
-
       {/* Estatísticas */}
       <div className="max-w-7xl mx-auto px-4 py-4 flex gap-6 text-gray-400 border-b border-gray-800">
         <span>🎧 {profileUser.stats?.totalPlays || 0} reproduções</span>
         <span>❤️ {profileUser.stats?.totalLikes || 0} curtidas</span>
         <span>📀 {profileUser.stats?.totalSets || 0} sets</span>
       </div>
-
       {/* Sets publicados */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         <h2 className="font-display text-xl mb-6">Sets publicados</h2>
@@ -105,7 +97,6 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../lib/api';
 import Button from '../../components/Button';
-
 export default function EditProfile() {
   const { user } = useAuth();
   const router = useRouter();
@@ -119,7 +110,6 @@ export default function EditProfile() {
     bannerURL: '',
     photoURL: '',
   });
-
   useEffect(() => {
     if (user) {
       // Buscar dados atuais do usuário pelo uid (ou pelo id do MongoDB)
@@ -137,7 +127,6 @@ export default function EditProfile() {
       }).catch(console.error);
     }
   }, [user]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -150,9 +139,7 @@ export default function EditProfile() {
       setLoading(false);
     }
   };
-
   if (!user) return <div className="text-white p-4">Faça login para editar.</div>;
-
   return (
     <div className="min-h-screen bg-black py-12">
       <div className="max-w-2xl mx-auto px-4">
@@ -238,7 +225,6 @@ import api from '../../lib/api';
 import { Heart, Play, Pause, Share2, MessageCircle, Volume2 } from 'lucide-react';
 import Button from '../../components/Button';
 import Link from 'next/link';
-
 export default function SetDetail() {
   const router = useRouter();
   const { id } = router.query;
@@ -252,19 +238,16 @@ export default function SetDetail() {
   const [likesCount, setLikesCount] = useState(0);
   const audioRef = useRef(null);
   const [progress, setProgress] = useState(0);
-
   useEffect(() => {
     if (id) {
       api.get(`/sets/${id}`).then(res => {
         setSet(res.data);
         setComments(res.data.comments || []);
         setLikesCount(res.data.likes?.length || 0);
-        setLiked(res.data.likes?.includes(user?._id) || false);
-        setFavorited(res.data.favorites?.includes(user?._id) || false);
+        setLiked(res.data.likes?.includes(user?._id) || false);        setFavorited(res.data.favorites?.includes(user?._id) || false);
       }).catch(console.error);
     }
   }, [id, user]);
-
   const togglePlay = () => {
     if (audioRef.current) {
       if (playing) {
@@ -276,20 +259,17 @@ export default function SetDetail() {
       setPlaying(!playing);
     }
   };
-
   const handleLike = async () => {
     if (!user) return alert('Faça login para curtir');
     const res = await api.post(`/sets/${set._id}/like`);
     setLiked(!liked);
     setLikesCount(prev => liked ? prev - 1 : prev + 1);
   };
-
   const handleFavorite = async () => {
     if (!user) return alert('Faça login para favoritar');
     await api.post(`/sets/${set._id}/favorite`);
     setFavorited(!favorited);
   };
-
   const handleComment = async (e) => {
     e.preventDefault();
     if (!user) return alert('Faça login para comentar');
@@ -298,7 +278,6 @@ export default function SetDetail() {
     setComments([res.data, ...comments]);
     setNewComment('');
   };
-
   const handleTimeUpdate = () => {
     if (audioRef.current) {
       const pct = (audioRef.current.currentTime / audioRef.current.duration) * 100;
@@ -307,7 +286,6 @@ export default function SetDetail() {
   };
 
   if (!set) return <div className="text-white p-4">Carregando...</div>;
-
   return (
     <div className="bg-black text-white min-h-screen">
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -337,7 +315,6 @@ export default function SetDetail() {
             </div>
           </div>
         </div>
-
         {/* Informações do set */}
         <div className="mt-6 flex flex-wrap justify-between items-start gap-4">
           <div>
@@ -364,7 +341,6 @@ export default function SetDetail() {
             </button>
           </div>
         </div>
-
         {/* Comentários */}
         <div className="mt-10 border-t border-gray-800 pt-6">
           <h2 className="font-display text-xl mb-4">Comentários</h2>
@@ -410,7 +386,6 @@ export default function SetDetail() {
 }
 import '../styles/globals.css';
 import Layout from '../components/Layout';
-
 function MyApp({ Component, pageProps }) {
   return (
     <Layout>
@@ -418,10 +393,8 @@ function MyApp({ Component, pageProps }) {
     </Layout>
   );
 }
-
 export default MyApp;
 import { Html, Head, Main, NextScript } from 'next/document';
-
 export default function Document() {
   return (
     <Html>
@@ -442,7 +415,6 @@ const nextConfig = {
     domains: ['lh3.googleusercontent.com'], // para imagens do Google
   },
 };
-
 module.exports = nextConfig;
 // backend/src/routes/users.js (trecho)
 router.put('/:id', verifyToken, async (req, res) => {
