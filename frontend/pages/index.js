@@ -1,8 +1,14 @@
-export default function Home() {
+import '../styles/globals.css';
+import Layout from '../components/Layout';
+
+function MyApp({ Component, pageProps }) {
   return (
-    <div>
-      <h1>Underground Platform</h1>
-      <p>Welcome to the Underground Platform</p>
-    </div>
+    <Layout>
+      <Component {...pageProps} />
+    </Layout>
   );
 }
+
+export default MyApp;
+cd frontend
+npm install lucide-react
