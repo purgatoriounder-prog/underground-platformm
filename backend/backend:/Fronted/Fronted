@@ -359,11 +359,9 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../lib/api';
 import AdminNav from '../../components/AdminNav';
-
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState({ users: 0, sets: 0, comments: 0 });
-
   useEffect(() => {
     if (user?.email === 'purgatoriounder@gmail.com') {
       api.get('/admin/stats').then(res => setStats(res.data));
