@@ -1,7 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 @layer base {
   body {
     @apply bg-black text-gray-200;
@@ -103,7 +102,6 @@ export default function Header() {
             </Link>
           )}
         </nav>
-
         <div className="flex items-center gap-4">
           {user ? (
             <div className="flex items-center gap-3">
@@ -201,7 +199,6 @@ export default function SetCard({ set, onUpdate }) {
             )}
           </div>
         </button>
-
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-700">
           <div 
             className="h-full bg-green-600 transition-all duration-300" 
@@ -270,7 +267,6 @@ export default function Home() {
   const { user, signInWithGoogle } = useAuth();
   const [sets, setSets] = useState([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     api.get('/sets/feed')
       .then(res => setSets(res.data))
@@ -298,7 +294,6 @@ export default function Home() {
         </div>
         <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-green-600 to-transparent"></div>
       </section>
-
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="font-display text-2xl text-white">Sets Recentes</h2>
@@ -308,7 +303,6 @@ export default function Home() {
             </Button>
           )}
         </div>
-
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1,2,3,4,5,6].map(i => (
@@ -344,7 +338,6 @@ export default function Upload() {
   });
   const [audio, setAudio] = useState(null);
   const [cover, setCover] = useState(null);
-
   if (!user) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -369,7 +362,6 @@ export default function Upload() {
     formData.append('tags', form.tags);
     formData.append('audio', audio);
     if (cover) formData.append('cover', cover);
-
     try {
       await api.post('/sets/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -440,7 +432,6 @@ export default function Upload() {
                 />
               </div>
             </div>
-
             <div>
               <label className="block text-sm text-gray-400 mb-1">Áudio (MP3, WAV) *</label>
               <input
@@ -451,7 +442,6 @@ export default function Upload() {
                 required
               />
             </div>
-
             <div>
               <label className="block text-sm text-gray-400 mb-1">Imagem de capa</label>
               <input
@@ -461,7 +451,6 @@ export default function Upload() {
                 className="w-full text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-700 file:text-white hover:file:bg-gray-600 cursor-pointer"
               />
             </div>
-
             <Button
               type="submit"
               variant="primary"
@@ -477,7 +466,6 @@ export default function Upload() {
   );
 }
 import React from 'react';
-
 export default function Footer() {
   return (
     <footer className="bg-black border-t border-green-900/30 py-6 mt-12">
