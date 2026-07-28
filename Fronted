@@ -284,7 +284,6 @@ export default function SetDetail() {
       setProgress(pct || 0);
     }
   };
-
   if (!set) return <div className="text-white p-4">Carregando...</div>;
   return (
     <div className="bg-black text-white min-h-screen">
