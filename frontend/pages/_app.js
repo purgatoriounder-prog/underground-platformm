@@ -1,10 +1,14 @@
-import { SpeedInsights } from '@vercel/speed-insights/next';
+import '../styles/globals.css';
+import Layout from '../components/Layout';
 
-export default function App({ Component, pageProps }) {
+function MyApp({ Component, pageProps }) {
   return (
-    <>
+    <Layout>
       <Component {...pageProps} />
-      <SpeedInsights />
-    </>
+    </Layout>
   );
 }
+
+export default MyApp;
+cd frontend
+npm install lucide-react
