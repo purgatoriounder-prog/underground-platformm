@@ -55,38 +55,31 @@ MONGO_URI=mongodb://localhost:27017/underground-techno
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const mongoose = require('mongoose');
-
+const mongoose = require('mongoose');
 // Importar rotas
 const authRoutes = require('./src/routes/auth');
 const userRoutes = require('./src/routes/users');
 const setRoutes = require('./src/routes/sets');
 const commentRoutes = require('./src/routes/comments');
-const adminRoutes = require('./src/routes/admin');
-
+const adminRoutes = require('./src/routes/admin');
 const app = express();
 app.use(cors());
-app.use(express.json());
-
+app.use(express.json());
 // Conectar MongoDB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ MongoDB conectado'))
-  .catch(err => console.log('❌ Erro no MongoDB:', err));
-
+  .catch(err => console.log('❌ Erro no MongoDB:', err));
 // Rotas
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/sets', setRoutes);
 app.use('/api/comments', commentRoutes);
-app.use('/api/admin', adminRoutes);
-
+app.use('/api/admin', adminRoutes);
 // Rota para servir arquivos do GridFS (será configurada nas rotas de set)
-// A rota /api/files/:filename será implementada no sets.js
-
+// A rota /api/files/:filename será implementada no sets.js
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Backend rodando na porta ${PORT}`));
-const admin = require('firebase-admin');
-
+const admin = require('firebase-admin');
 // Verifica se já foi inicializado para evitar duplicidade
 if (!admin.apps.length) {
   try {
@@ -105,21 +98,17 @@ if (!admin.apps.length) {
       }),
     });
   }
-}
-
+}
 const auth = admin.auth();
 module.exports = { auth };
-const mongoose = require('mongoose');
-
+const mongoose = require('mongoose');
 const getGridFSBucket = () => {
   const conn = mongoose.connection;
   if (!conn || !conn.db) throw new Error('MongoDB não conectado');
   return new mongoose.mongo.GridFSBucket(conn.db, { bucketName: 'uploads' });
-};
-
+};
 module.exports = { getGridFSBucket };
-const mongoose = require('mongoose');
-
+const mongoose = require('mongoose');
 const UserSchema = new mongoose.Schema({
   uid: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
@@ -139,11 +128,9 @@ const UserSchema = new mongoose.Schema({
     totalSets: { type: Number, default: 0 },
   },
   createdAt: { type: Date, default: Date.now },
-});
-
+});
 module.exports = mongoose.model('User', UserSchema);
-const mongoose = require('mongoose');
-
+const mongoose = require('mongoose');
 const SetSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   title: { type: String, required: true },
@@ -161,32 +148,26 @@ const SetSchema = new mongoose.Schema({
   isFeatured: { type: Boolean, default: false },
   isApproved: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
-});
-
+});
 module.exports = mongoose.model('Set', SetSchema);
-const mongoose = require('mongoose');
-
+const mongoose = require('mongoose');
 const CommentSchema = new mongoose.Schema({
   set: { type: mongoose.Schema.Types.ObjectId, ref: 'Set', required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   text: { type: String, required: true },
   replies: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }],
   createdAt: { type: Date, default: Date.now },
-});
-
+});
 module.exports = mongoose.model('Comment', CommentSchema);
 const { auth } = require('../config/firebase');
-const User = require('../models/User');
-
+const User = require('../models/User');
 // Verifica se o token JWT é válido
 const verifyToken = async (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Token não fornecido' });
-
+  if (!token) return res.status(401).json({ error: 'Token não fornecido' });
   try {
     const decoded = await auth.verifyIdToken(token);
-    req.user = decoded; // uid, email, etc.
-    
+    req.user = decoded; // uid, email, etc.  
     // Sincroniza/atualiza o usuário no banco de dados
     let dbUser = await User.findOne({ uid: decoded.uid });
     if (!dbUser) {
@@ -213,22 +194,19 @@ const verifyToken = async (req, res, next) => {
   } catch (err) {
     return res.status(403).json({ error: 'Token inválido' });
   }
-};
-
+};
 // Verifica se é admin (deve ser usado após verifyToken)
 const isAdmin = (req, res, next) => {
   if (!req.dbUser || !req.dbUser.isAdmin) {
     return res.status(403).json({ error: 'Acesso administrativo negado' });
   }
   next();
-};
-
+};
 module.exports = { verifyToken, isAdmin };
 const multer = require('multer');
 const { GridFsStorage } = require('multer-gridfs-storage');
 const crypto = require('crypto');
-const path = require('path');
-
+const path = require('path');
 const storage = new GridFsStorage({
   url: process.env.MONGO_URI,
   file: (req, file) => {
@@ -243,32 +221,27 @@ const storage = new GridFsStorage({
       });
     });
   },
-});
-
+});
 const upload = multer({ 
   storage,
   limits: { fileSize: 1024 * 1024 * 500 } // 500MB para sets longos
-});
-
+});
 module.exports = upload;
 const express = require('express');
 const router = express.Router();
-const { verifyToken } = require('../middleware/auth');
-
+const { verifyToken } = require('../middleware/auth');
 router.get('/verify', verifyToken, async (req, res) => {
   res.json({ 
     user: req.dbUser,
     firebaseUser: req.user 
   });
-});
-
+});
 module.exports = router;
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Set = require('../models/Set');
-const { verifyToken } = require('../middleware/auth');
-
+const { verifyToken } = require('../middleware/auth');
 // Buscar perfil público
 router.get('/:id', async (req, res) => {
   try {
@@ -278,8 +251,7 @@ router.get('/:id', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
+});
 // Buscar sets de um usuário
 router.get('/:id/sets', async (req, res) => {
   try {
@@ -289,8 +261,7 @@ router.get('/:id/sets', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
+});
 // Atualizar perfil (próprio usuário)
 router.put('/:id', verifyToken, async (req, res) => {
   try {
@@ -305,8 +276,7 @@ router.put('/:id', verifyToken, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
+});
 module.exports = router;
 const express = require('express');
 const router = express.Router();
@@ -314,8 +284,7 @@ const upload = require('../middleware/upload');
 const { verifyToken } = require('../middleware/auth');
 const Set = require('../models/Set');
 const User = require('../models/User');
-const { getGridFSBucket } = require('../config/mongodb');
-
+const { getGridFSBucket } = require('../config/mongodb');
 // FEED de sets
 router.get('/feed', async (req, res) => {
   try {
@@ -327,8 +296,7 @@ router.get('/feed', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
+});
 // Detalhes de um set
 router.get('/:id', async (req, res) => {
   try {
@@ -357,12 +325,10 @@ router.post('/upload', verifyToken, upload.fields([
 
     if (!req.files['audio']) {
       return res.status(400).json({ error: 'Arquivo de áudio é obrigatório' });
-    }
-
+    }
     const audioFile = req.files['audio'][0].filename;
     const coverFile = req.files['cover'] ? req.files['cover'][0].filename : null;
-    const videoFile = req.files['video'] ? req.files['video'][0].filename : null;
-
+    const videoFile = req.files['video'] ? req.files['video'][0].filename : null;
     const newSet = new Set({
       userId: user._id,
       title,
@@ -372,20 +338,16 @@ router.post('/upload', verifyToken, upload.fields([
       coverImage: coverFile ? `/api/files/${coverFile}` : null,
       audioFile: `/api/files/${audioFile}`,
       videoFile: videoFile ? `/api/files/${videoFile}` : null,
-    });
-
-    await newSet.save();
-    
+    });
+    await newSet.save();    
     // Atualiza estatísticas do usuário
     user.stats.totalSets += 1;
-    await user.save();
-
+    await user.save();
     res.status(201).json(newSet);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
+});
 // Servir arquivos do GridFS
 router.get('/files/:filename', async (req, res) => {
   try {
@@ -396,17 +358,14 @@ router.get('/files/:filename', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
+});
 // Curtir / Descurtir
 router.post('/:id/like', verifyToken, async (req, res) => {
   try {
     const set = await Set.findById(req.params.id);
-    if (!set) return res.status(404).json({ error: 'Set não encontrado' });
-
+    if (!set) return res.status(404).json({ error: 'Set não encontrado' });
     const userId = req.dbUser._id;
-    const index = set.likes.indexOf(userId);
-    
+    const index = set.likes.indexOf(userId);    
     if (index > -1) {
       set.likes.splice(index, 1);
     } else {
@@ -417,17 +376,14 @@ router.post('/:id/like', verifyToken, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
+});
 // Favoritar / Desfavoritar
 router.post('/:id/favorite', verifyToken, async (req, res) => {
   try {
     const set = await Set.findById(req.params.id);
-    if (!set) return res.status(404).json({ error: 'Set não encontrado' });
-
+    if (!set) return res.status(404).json({ error: 'Set não encontrado' });
     const userId = req.dbUser._id;
-    const index = set.favorites.indexOf(userId);
-    
+    const index = set.favorites.indexOf(userId);    
     if (index > -1) {
       set.favorites.splice(index, 1);
     } else {
@@ -438,8 +394,7 @@ router.post('/:id/favorite', verifyToken, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
+});
 // Incrementar plays
 router.post('/:id/play', async (req, res) => {
   try {
@@ -448,74 +403,62 @@ router.post('/:id/play', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
+});
 module.exports = router;
 const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middleware/auth');
 const Comment = require('../models/Comment');
-const Set = require('../models/Set');
-
+const Set = require('../models/Set');
 // Adicionar comentário
 router.post('/:setId', verifyToken, async (req, res) => {
   try {
     const { text } = req.body;
     const set = await Set.findById(req.params.setId);
-    if (!set) return res.status(404).json({ error: 'Set não encontrado' });
-
+    if (!set) return res.status(404).json({ error: 'Set não encontrado' });
     const comment = new Comment({
       set: set._id,
       userId: req.dbUser._id,
       text,
     });
-    await comment.save();
-
+    await comment.save();
     set.comments.push(comment._id);
-    await set.save();
-
+    await set.save();
     // Popula o usuário para retornar
     await comment.populate('userId', 'displayName photoURL');
     res.status(201).json(comment);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
+});
 // Responder comentário
 router.post('/:commentId/reply', verifyToken, async (req, res) => {
   try {
     const { text } = req.body;
     const parentComment = await Comment.findById(req.params.commentId);
-    if (!parentComment) return res.status(404).json({ error: 'Comentário não encontrado' });
-
+    if (!parentComment) return res.status(404).json({ error: 'Comentário não encontrado' });
     const reply = new Comment({
       set: parentComment.set,
       userId: req.dbUser._id,
       text,
     });
-    await reply.save();
-
+    await reply.save();
     parentComment.replies.push(reply._id);
-    await parentComment.save();
-
+    await parentComment.save();
     await reply.populate('userId', 'displayName photoURL');
     res.status(201).json(reply);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
+});
 // Deletar comentário (admin ou dono)
 router.delete('/:id', verifyToken, async (req, res) => {
   try {
     const comment = await Comment.findById(req.params.id);
-    if (!comment) return res.status(404).json({ error: 'Comentário não encontrado' });
-    
+    if (!comment) return res.status(404).json({ error: 'Comentário não encontrado' });   
     if (comment.userId.toString() !== req.dbUser._id.toString() && !req.dbUser.isAdmin) {
       return res.status(403).json({ error: 'Sem permissão' });
-    }
-
+    }
     await Comment.deleteOne({ _id: req.params.id });
     // Remove referência do set
     await Set.updateOne({ _id: comment.set }, { $pull: { comments: comment._id } });
@@ -523,30 +466,26 @@ router.delete('/:id', verifyToken, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
+});
 module.exports = router;
 const express = require('express');
 const router = express.Router();
 const { verifyToken, isAdmin } = require('../middleware/auth');
 const User = require('../models/User');
 const Set = require('../models/Set');
-const Comment = require('../models/Comment');
-
+const Comment = require('../models/Comment');
 // Estatísticas gerais
 router.get('/stats', verifyToken, isAdmin, async (req, res) => {
   const users = await User.countDocuments();
   const sets = await Set.countDocuments();
   const comments = await Comment.countDocuments();
   res.json({ users, sets, comments });
-});
-
+});
 // Listar usuários
 router.get('/users', verifyToken, isAdmin, async (req, res) => {
   const users = await User.find().select('-__v').sort({ createdAt: -1 });
   res.json(users);
-});
-
+});
 // Tornar oficial / remover oficial
 router.patch('/users/:id/official', verifyToken, isAdmin, async (req, res) => {
   const user = await User.findById(req.params.id);
@@ -554,20 +493,17 @@ router.patch('/users/:id/official', verifyToken, isAdmin, async (req, res) => {
   user.isOfficial = !user.isOfficial;
   await user.save();
   res.json({ isOfficial: user.isOfficial });
-});
-
+});
 // Deletar usuário
 router.delete('/users/:id', verifyToken, isAdmin, async (req, res) => {
   await User.findByIdAndDelete(req.params.id);
   res.json({ success: true });
-});
-
+});
 // Listar sets (com paginação)
 router.get('/sets', verifyToken, isAdmin, async (req, res) => {
   const sets = await Set.find().populate('userId', 'displayName email').sort({ createdAt: -1 });
   res.json(sets);
-});
-
+});
 // Destacar/Remover destaque
 router.patch('/sets/:id/feature', verifyToken, isAdmin, async (req, res) => {
   const set = await Set.findById(req.params.id);
@@ -575,24 +511,20 @@ router.patch('/sets/:id/feature', verifyToken, isAdmin, async (req, res) => {
   set.isFeatured = !set.isFeatured;
   await set.save();
   res.json({ isFeatured: set.isFeatured });
-});
-
+});
 // Deletar set (moderação)
 router.delete('/sets/:id', verifyToken, isAdmin, async (req, res) => {
   await Set.findByIdAndDelete(req.params.id);
   res.json({ success: true });
-});
-
+});
 // Listar comentários
 router.get('/comments', verifyToken, isAdmin, async (req, res) => {
   const comments = await Comment.find().populate('userId', 'displayName email').populate('set', 'title');
   res.json(comments);
-});
-
+});
 // Deletar comentário (moderação)
 router.delete('/comments/:id', verifyToken, isAdmin, async (req, res) => {
   await Comment.findByIdAndDelete(req.params.id);
   res.json({ success: true });
-});
-
+});
 module.exports = router;
