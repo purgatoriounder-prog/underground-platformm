@@ -77,7 +77,6 @@ module.exports = {
 }@tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 @layer base {
   body {
     @apply bg-black text-gray-200;
@@ -104,19 +103,15 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
-
 export { auth, provider, signInWithPopup, signOut };
 import axios from 'axios';
 import { auth } from './firebase';
-
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
 });
-
 api.interceptors.request.use(async (config) => {
   const user = auth.currentUser;
   if (user) {
@@ -125,16 +120,13 @@ api.interceptors.request.use(async (config) => {
   }
   return config;
 });
-
 export default api;
 import { useEffect, useState } from 'react';
 import { auth, signInWithPopup, provider, signOut as firebaseSignOut } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-
 export function useAuth() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
@@ -151,7 +143,6 @@ export function useAuth() {
     });
     return unsubscribe;
   }, []);
-
   const signInWithGoogle = async () => {
     try {
       await signInWithPopup(auth, provider);
@@ -159,11 +150,9 @@ export function useAuth() {
       console.error(error);
     }
   };
-
   const signOut = async () => {
     await firebaseSignOut();
   };
-
   return { user, loading, signInWithGoogle, signOut };
 }
 import { useState, useRef } from 'react';
@@ -171,14 +160,12 @@ import Link from 'next/link';
 import { Heart, Play, Pause, Share2, MessageCircle } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
-
 export default function SetCard({ set, onUpdate }) {
   const { user } = useAuth();
   const [playing, setPlaying] = useState(false);
   const [likes, setLikes] = useState(set.likes?.length || 0);
   const [liked, setLiked] = useState(set.likes?.includes(user?._id) || false);
   const audioRef = useRef(null);
-
   const togglePlay = () => {
     if (audioRef.current) {
       if (playing) {
@@ -191,14 +178,12 @@ export default function SetCard({ set, onUpdate }) {
       setPlaying(!playing);
     }
   };
-
   const handleLike = async () => {
     if (!user) return alert('Faça login para curtir');
     await api.post(`/sets/${set._id}/like`);
     setLiked(!liked);
     setLikes(liked ? likes - 1 : likes + 1);
   };
-
   return (
     <div className="bg-gray-900 rounded-lg overflow-hidden shadow-lg hover:shadow-red-900/20 transition-all">
       <div className="relative h-48 bg-gray-800">
@@ -216,7 +201,6 @@ export default function SetCard({ set, onUpdate }) {
         )}
         <audio ref={audioRef} src={set.audioFile} onEnded={() => setPlaying(false)} />
       </div>
-
       <div className="p-4">
         <Link href={`/set/${set._id}`}>
           <h3 className="text-xl font-bold hover:text-red-400 transition truncate">{set.title}</h3>
@@ -224,8 +208,7 @@ export default function SetCard({ set, onUpdate }) {
         <Link href={`/profile/${set.userId?._id}`}>
           <p className="text-gray-400 text-sm hover:text-red-400">@{set.userId?.displayName || 'Usuário'}</p>
         </Link>
-        <p className="text-gray-500 text-xs">{set.genre} • {set.tags?.join(', ')}</p>
-        
+        <p className="text-gray-500 text-xs">{set.genre} • {set.tags?.join(', ')}</p>       
         <div className="flex justify-between items-center mt-3 text-gray-400">
           <div className="flex gap-4">
             <button onClick={handleLike} className={`flex items-center gap-1 hover:text-red-400 ${liked ? 'text-red-600' : ''}`}>
@@ -250,16 +233,13 @@ import { useAuth } from '../hooks/useAuth';
 import SetCard from '../components/SetCard';
 import api from '../lib/api';
 import Link from 'next/link';
-
 export default function Home() {
   const { user, signInWithGoogle, signOut } = useAuth();
   const [sets, setSets] = useState([]);
   const isAdmin = user?.email === 'purgatoriounder@gmail.com';
-
   useEffect(() => {
     api.get('/sets/feed').then(res => setSets(res.data));
   }, []);
-
   return (
     <div className="min-h-screen bg-black text-white">
       <header className="bg-gray-900 border-b border-red-900 p-4">
@@ -324,11 +304,9 @@ export default function Upload() {
   if (!user) {
     return <div className="text-white p-4">Faça login para enviar um set.</div>;
   }
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!audio) return alert('Selecione um arquivo de áudio');
-
     setLoading(true);
     const formData = new FormData();
     formData.append('title', form.title);
@@ -337,7 +315,6 @@ export default function Upload() {
     formData.append('tags', form.tags);
     formData.append('audio', audio);
     if (cover) formData.append('cover', cover);
-
     try {
       await api.post('/sets/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -349,7 +326,6 @@ export default function Upload() {
       setLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen bg-black text-white p-8">
       <div className="max-w-2xl mx-auto bg-gray-900 p-8 rounded-lg">
@@ -396,11 +372,9 @@ export default function AdminDashboard() {
       api.get('/admin/stats').then(res => setStats(res.data));
     }
   }, [user]);
-
   if (!user || user.email !== 'purgatoriounder@gmail.com') {
     return <div className="text-white p-4">Acesso negado.</div>;
   }
-
   return (
     <div className="min-h-screen bg-black text-white">
       <AdminNav />
