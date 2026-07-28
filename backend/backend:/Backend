@@ -311,8 +311,7 @@ router.get('/:id', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
+});
 // Upload de set (protegido)
 router.post('/upload', verifyToken, upload.fields([
   { name: 'audio', maxCount: 1 },
@@ -321,8 +320,7 @@ router.post('/upload', verifyToken, upload.fields([
 ]), async (req, res) => {
   try {
     const { title, description, genre, tags } = req.body;
-    const user = req.dbUser;
-
+    const user = req.dbUser;
     if (!req.files['audio']) {
       return res.status(400).json({ error: 'Arquivo de áudio é obrigatório' });
     }
