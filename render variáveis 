@@ -1,0 +1,24 @@
+{
+  "type": "service_account",
+  "project_id": "underground-techno",
+  "private_key_id": "abc123...",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC...\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-xxxx@underground-techno.iam.gserviceaccount.com",
+  "client_id": "123456789",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token"
+}
+FRONTEND (Vercel)
+├── NEXT_PUBLIC_FIREBASE_API_KEY
+├── NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+├── NEXT_PUBLIC_FIREBASE_PROJECT_ID
+├── NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+├── NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+├── NEXT_PUBLIC_FIREBASE_APP_ID
+└── NEXT_PUBLIC_API_URL  → (aponta para o backend no Render)
+
+BACKEND (Render)
+├── MONGO_URI
+├── FIREBASE_PROJECT_ID
+├── FIREBASE_PRIVATE_KEY
+└── FIREBASE_CLIENT_EMAIL
