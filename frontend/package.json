@@ -73,6 +73,3 @@
     "tailwindcss": "^3.3.3"
   }
 }
-git add frontend/package.json
-git commit -m "fix: adiciona package.json do frontend"
-git push
