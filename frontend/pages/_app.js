@@ -1,14 +1,15 @@
-import '../styles/globals.css';
-import Layout from '../components/Layout';
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  images: {
+    domains: ['lh3.googleusercontent.com'],
+  },
+};
 
-function MyApp({ Component, pageProps }) {
-  return (
-    <Layout>
-      <Component {...pageProps} />
-    </Layout>
-  );
+module.exports = nextConfig;
+export default function Home() {
+  return <h1>Underground Techno</h1>;
 }
-
-export default MyApp;
-cd frontend
-npm install lucide-react
+rm -rf .next
+npm install
+npm run build
