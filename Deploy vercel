@@ -53,20 +53,16 @@ const colors = {
   yellow: '\x1b[33m',
   reset: '\x1b[0m',
 };
-
 function log(message, color = 'green') {
   console.log(`${colors[color]}${message}${colors.reset}`);
 }
-
 // Verifica se o arquivo .env.local existe
 const envPath = path.join(__dirname, '../.env.local');
 if (!fs.existsSync(envPath)) {
   log('❌ Arquivo .env.local não encontrado!', 'red');
   process.exit(1);
 }
-
 log('🔍 Verificando variáveis de ambiente...');
-
 // Lê as variáveis necessárias
 const envContent = fs.readFileSync(envPath, 'utf8');
 const requiredVars = [
@@ -78,11 +74,9 @@ const requiredVars = [
   'NEXT_PUBLIC_FIREBASE_APP_ID',
   'NEXT_PUBLIC_API_URL'
 ];
-
 const missing = requiredVars.filter(
   varName => !envContent.includes(varName)
 );
-
 if (missing.length) {
   log(
     `⚠️ Variáveis faltando no .env.local: ${missing.join(', ')}`,
@@ -90,22 +84,17 @@ if (missing.length) {
   );
   log('Continuando mesmo assim...', 'yellow');
 }
-
 log('✅ Variáveis verificadas.');
-
 // Executa o build
 log('📦 Buildando o projeto...', 'yellow');
-
 try {
   execSync('npm run build', { stdio: 'inherit' });
 } catch (error) {
   log('❌ Build falhou!', 'red');
   process.exit(1);
 }
-
 // Deploy na Vercel (se estiver logado)
 log('🚀 Fazendo deploy na Vercel...', 'yellow');
-
 try {
   // --prod para produção, --yes para não perguntar
   execSync('vercel --prod --yes', { stdio: 'inherit' });
