@@ -4,6 +4,11 @@ on:
   push:
     branches: [ "integrate-bridge" ]
   workflow_dispatch:
+    inputs:
+      run_heavy:
+        description: 'Set to true to attempt running heavy notebooks (will install torch)'
+        required: false
+        default: 'false'
 
 permissions:
   contents: write
@@ -12,6 +17,7 @@ permissions:
 jobs:
   build-and-run-notebooks:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -37,10 +43,18 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: |-
+            ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/tools/codespaces-jupyter/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - name: Install minimal notebook dependencies (avoid heavy ML packages in CI)
         run: |
           pip install --upgrade pip
-          # Install only lightweight deps needed to run the smoke-test notebook (matplotlib)
           pip install papermill nbformat matplotlib pandas || true
 
       - name: Run lightweight smoke-test notebook (matplotlib.ipynb)
@@ -48,18 +62,50 @@ jobs:
           mkdir -p artifacts
           NOTEBOOK=tools/codespaces-jupyter/notebooks/matplotlib.ipynb
           if [ -f "$NOTEBOOK" ]; then
-            python - <<PY
-import papermill as pm
-nb = '$NOTEBOOK'
-out = 'artifacts/ci_run.ipynb'
-print('Executing', nb, '->', out)
-pm.execute_notebook(nb, out, parameters={})
-print('Done')
-PY
+            DIR=$(dirname "$NOTEBOOK")
+            BASE=$(basename "$NOTEBOOK")
+            pushd "$DIR"
+            papermill "$BASE" "../../artifacts/matplotlib_ci.ipynb"
+            popd
           else
             echo "Smoke-test notebook not found: $NOTEBOOK"
-            exit 0
           fi
+
+      - name: Run optional smoke-test notebook (population.ipynb)
+        run: |
+          NOTEBOOK=tools/codespaces-jupyter/notebooks/population.ipynb
+          if [ -f "$NOTEBOOK" ]; then
+            DIR=$(dirname "$NOTEBOOK")
+            BASE=$(basename "$NOTEBOOK")
+            pushd "$DIR"
+            papermill "$BASE" "../../artifacts/population_ci.ipynb" || true
+            popd
+          else
+            echo "Optional notebook not found: $NOTEBOOK"
+          fi
+
+      - name: Conditionally run heavy notebooks (image-classifier)
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_heavy == 'true' }}
+        run: |
+          echo "Attempting heavy notebook run (this may take long and can fail on hosted runners)"
+          pip install --upgrade pip
+          if [ -f tools/codespaces-jupyter/requirements.txt ]; then pip install -r tools/codespaces-jupyter/requirements.txt || true; fi
+          NOTEBOOK=tools/codespaces-jupyter/notebooks/image-classifier.ipynb
+          if [ -f "$NOTEBOOK" ]; then
+            DIR=$(dirname "$NOTEBOOK")
+            BASE=$(basename "$NOTEBOOK")
+            pushd "$DIR"
+            papermill "$BASE" "../../artifacts/image_classifier_ci.ipynb" || true
+            popd
+          else
+            echo "Heavy notebook not found: $NOTEBOOK"
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bridge-notebook-artifacts
+          path: artifacts/*.ipynb
 
       - name: Create or update PR and attempt auto-merge
         uses: actions/github-script@v7
