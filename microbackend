@@ -1,0 +1,51 @@
+// src/config/cors.js
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production'
+    ? [
+        'https://underground-platformm.vercel.app',
+        'https://nextjs.vercel.app' // se for outro frontend
+      ]
+    : '*', // em desenvolvimento, aceita qualquer origem
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+};
+module.exports = corsOptions;
+const cors = require('cors');
+const corsOptions = require('./src/config/cors');
+app.use(cors(corsOptions));
+NEXT_PUBLIC_API_URL=https://backend-url.onrender.com/api
+// lib/api.js
+import axios from 'axios';
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
+});
+export default api;
+// sync-deps.js
+const fs = require('fs');
+const path = require('path');
+const repos = [
+  '../codespaces-jupyter/package.json',
+  '../underground-platformm/package.json',
+  '../nextjs/package.json'
+];
+const sharedDeps = {
+  'react': '^19.2.4',
+  'next': '^16.2.4',
+  // adicione outras dependências comuns
+};
+repos.forEach(repoPath => {
+  const fullPath = path.join(__dirname, repoPath);
+  if (fs.existsSync(fullPath)) {
+    const pkg = require(fullPath);
+    Object.keys(sharedDeps).forEach(dep => {
+      if (pkg.dependencies && pkg.dependencies[dep]) {
+        pkg.dependencies[dep] = sharedDeps[dep];
+      }
+      if (pkg.devDependencies && pkg.devDependencies[dep]) {
+        pkg.devDependencies[dep] = sharedDeps[dep];
+      }
+    });
+    fs.writeFileSync(fullPath, JSON.stringify(pkg, null, 2));
+  }
+});
