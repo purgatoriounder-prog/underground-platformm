@@ -1,5 +1,4 @@
 version: '3.8'
-
 services:
   mongo:
     image: mongo:6
@@ -9,7 +8,6 @@ services:
     ports:
       - "27017:27017"
     restart: unless-stopped
-
   backend:
     image: node:18
     container_name: underground_backend
@@ -27,7 +25,6 @@ services:
       - mongo
     command: sh -c "npm install --silent && npm run dev"
     restart: unless-stopped
-
   frontend:
     image: node:18
     container_name: underground_frontend
@@ -43,6 +40,5 @@ services:
       - backend
     command: sh -c "npm install --silent && npm run dev"
     restart: unless-stopped
-
 volumes:
   mongo-data:
