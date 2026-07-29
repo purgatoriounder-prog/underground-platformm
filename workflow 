@@ -1,0 +1,25 @@
+name: Integrate
+on:
+  push:
+    branches: [ main, integrate-bridge ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test backend
+        run: |
+          cd codespaces-jupyter
+          npm install
+          npm test
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test frontend
+        run: |
+          cd underground-platformm
+          npm install
+          npm run build
