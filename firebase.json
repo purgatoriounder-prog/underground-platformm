@@ -1,0 +1,29 @@
+{
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+// Substitua as strings abaixo pelas credenciais reais do seu projeto no console do Firebase
+const firebaseConfig = {
+  apiKey: "SUA_API_KEY_OBTIDA_NO_CONSOLE",
+  authDomain: "underground-techno.firebaseapp.com",
+  projectId: "underground-techno",
+  appId: "SEU_APP_ID_OBTIDO_NO_CONSOLE"
+};
+// Inicializa o app do Firebase
+const app = initializeApp(firebaseConfig);
+// Inicializa o serviço de autenticação
+export const auth = getAuth(app);
