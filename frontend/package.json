@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "vercel-build": "next build"
+    "vercel-build": "next build",
+    "bridge:gen-env": "node ../scripts/bridge.js gen-env",
+    "bridge:sync-deps": "node ../scripts/bridge.js sync-deps",
+    "bridge:start": "node ../scripts/bridge.js start"
   },
   "dependencies": {
     "next": "^14.2.5",
