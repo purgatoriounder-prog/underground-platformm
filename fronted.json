@@ -1,0 +1,64 @@
+FRONTEND_PATHS=("frontend" ".")
+  wrote_env=false
+  wrote_pkg=false
+  for p in "${FRONTEND_PATHS[@]}"; do
+    target_dir="${REPO_DIR}/${p}"
+    pkg="${target_dir}/package.json"
+    env_example="${target_dir}/.env.example"
+    if [ -f "${pkg}" ]; then
+      # backup package.json
+      mkdir -p "${target_dir}/backups"
+      cp "${pkg}" "${target_dir}/backups/package.json.$(date +%Y%m%d%H%M%S)"
+      # read and update package.json: add bridge scripts without removing existing scripts
+      node -e "
+const fs=require('fs');
+const p=process.argv[1];
+const pkg=JSON.parse(fs.readFileSync(p,'utf8'));
+pkg.scripts = pkg.scripts || {};
+pkg.scripts['bridge:gen-env'] = pkg.scripts['bridge:gen-env'] || 'node ../scripts/bridge.js gen-env';
+pkg.scripts['bridge:sync-deps'] = pkg.scripts['bridge:sync-deps'] || 'node ../scripts/bridge.js sync-deps';
+pkg.scripts['bridge:start'] = pkg.scripts['bridge:start'] || 'node ../scripts/bridge.js start';
+fs.writeFileSync(p, JSON.stringify(pkg,null,2)+'\n');
+" "${pkg}"
+      git add "${pkg}"
+      wrote_pkg=true
+      # write .env.example if missing or append NOTEBOOK var if missing
+      if [ ! -f "${env_example}" ]; then
+        echo "${FRONTEND_ENV_EXAMPLE}" > "${env_example}"
+        git add "${env_example}"
+        wrote_env=true
+      else
+        if ! grep -q "NEXT_PUBLIC_API_URL" "${env_example}"; then
+          echo -e "\n${FRONTEND_ENV_EXAMPLE}" >> "${env_example}"
+          git add "${env_example}"
+          wrote_env=true
+        fi
+      fi
+      break
+    fi
+  done
+  # If no package.json found anywhere, still add frontend/.env.example at repo root if repo has frontend dir or create frontend dir
+  if [ "${wrote_pkg}" = false ]; then
+    # prefer creating frontend dir if repo is underground-platformm or nextjs or codespaces-jupyter if appropriate
+    mkdir -p frontend
+    if [ ! -f frontend/.env.example ]; then
+      echo "${FRONTEND_ENV_EXAMPLE}" > frontend/.env.example
+      git add frontend/.env.example
+      wrote_env=true
+    fi
+  fi
+  # Commit if staged changes exist
+  if ! git diff --staged --quiet; then
+    git commit -m "Integrate: add bridge script, add frontend .env.example and bridge npm scripts"
+    echo "Pushing ${BRANCH} to origin..."
+    git push origin "${BRANCH}"
+    echo "Creating PR via gh..."
+    gh pr create --title "${PR_TITLE}" --body "${PR_BODY}" --base main --head "${OWNER}:${BRANCH}" --repo "${OWNER}/${repo}" || echo "gh pr create failed for ${repo} (maybe a PR already exists)."
+  else
+    echo "No changes staged for ${repo}; skipping commit/push."
+  fi
+  popd >/dev/null
+done
+echo
+echo "Done. Temporary work dir: ${TMP_DIR}"
+echo "Review the created branches and PRs on GitHub."
