@@ -1,0 +1,108 @@
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+// Caminho da pasta do frontend (onde está o index.html da Underground-Techno)
+const FRONTEND_PATH = path.join(__dirname, 'roteiros');
+// Verifica se a pasta existe
+if (!fs.existsSync(FRONTEND_PATH)) {
+    console.error('❌ Pasta "roteiros" não encontrada. Certifique-se de que o frontend está lá.');
+    process.exit(1);
+}
+const app = express();
+// Middleware para servir arquivos estáticos (CSS, JS, imagens, etc.)
+// A opção 'extensions' permite acessar arquivos .html sem digitar a extensão
+app.use(express.static(FRONTEND_PATH, {
+    extensions: ['html', 'htm'],
+    dotfiles: 'ignore',
+    etag: true,
+    maxAge: '1d',
+}));
+// Rota raiz: sempre entrega o index.html da plataforma
+app.get('/', (req, res) => {
+    const indexPath = path.join(FRONTEND_PATH, 'index.html');
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        res.status(500).send(`
+            <!DOCTYPE html>
+            <html>
+            <head><title>Underground-Techno</title></head>
+            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+                <h1>⚡ Underground-Techno</h1>
+                <p>Arquivo <strong>index.html</strong> não encontrado na pasta /roteiros.</p>
+                <p>Por favor, faça o build do frontend ou crie um index.html.</p>
+            </body>
+            </html>
+        `);
+    }
+});
+// Qualquer outra rota → 404 (sem listar diretórios)
+app.use((req, res) => {
+    res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Underground-Techno - 404</title></head>
+        <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+            <h1>🚫 Underground-Techno</h1>
+            <p>A página solicitada não foi encontrada.</p>
+            <a href="/" style="color: #8b5cf6; text-decoration: none;">← Voltar para o início</a>
+        </body>
+        </html>
+    `);
+});
+// Inicia o servidor
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`🎧 Underground-Techno iniciada com sucesso!`);
+    console.log(`👉 Acesse: http://localhost:${PORT}`);
+});
+// Exporta a função para ser usada no bridge.js via case 'start'
+module.exports = { startServer: () => app.listen(PORT) };
+const command = process.argv[2];
+switch (command) {
+    case 'gen-env':
+        generateFrontendEnv();
+        break;
+    case 'sync-deps':
+        syncDependencies();
+        break;
+    case 'start':
+        // Importa e executa o servidor (se o código acima estiver em outro arquivo)
+        require('./server'); // ou chame a função diretamente se estiver no mesmo arquivo
+        break;
+    default:
+        console.log(`
+        Uso:
+        node bridge.js gen-env    → Gera .env.local do frontend
+        node bridge.js sync-deps  → Sincroniza dependências comuns
+        node bridge.js start      → Inicia todos os serviços em modo desenvolvimento
+        `);
+}
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const FRONTEND_PATH = path.join(__dirname, 'roteiros');
+function startServer() {
+    const app = express();
+    app.use(express.static(FRONTEND_PATH, { extensions: ['html'] }));
+    app.get('/', (req, res) => {
+        const indexPath = path.join(FRONTEND_PATH, 'index.html');
+        if (fs.existsSync(indexPath)) res.sendFile(indexPath);
+        else res.status(500).send('<h1>Underground-Techno</h1><p>index.html não encontrado.</p>');
+    });
+    app.use((req, res) => res.status(404).send('<h1>404 - Underground-Techno</h1><p>Página não encontrada.</p><a href="/">Início</a>'));
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => console.log(`🎧 Underground-Techno rodando na porta ${PORT}`));
+}
+const command = process.argv[2];
+switch (command) {
+    case 'gen-env': generateFrontendEnv(); break;
+    case 'sync-deps': syncDependencies(); break;
+    case 'start': startServer(); break;
+    default: console.log(`
+        Uso:
+        node bridge.js gen-env    → Gera .env.local do frontend
+        node bridge.js sync-deps  → Sincroniza dependências comuns
+        node bridge.js start      → Inicia todos os serviços em modo desenvolvimento
+    `);
+}
