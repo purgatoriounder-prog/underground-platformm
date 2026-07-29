@@ -1,0 +1,91 @@
+// bridge.js
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+// Configuração dos repositórios
+const repos = [
+  { name: 'backend', path: '../codespaces-jupyter', port: 5000 },
+  { name: 'frontend', path: '../underground-platformm', port: 3000 },
+  { name: 'extra', path: '../nextjs', port: 3001 }
+];
+// Lê as variáveis de ambiente do backend (exemplo: .env)
+function loadEnv(envPath) {
+  const envFile = path.join(envPath, '.env');
+  if (fs.existsSync(envFile)) {
+    const content = fs.readFileSync(envFile, 'utf-8');
+    const vars = content.split('\n').reduce((acc, line) => {
+      const [key, value] = line.split('=');
+      if (key && value) acc[key.trim()] = value.trim();
+      return acc;
+    }, {});
+    return vars;
+  }
+  return {};
+}
+// Gera um arquivo .env.local para o frontend com a URL correta do backend
+function generateFrontendEnv() {
+  const backendRepo = repos.find(r => r.name === 'backend');
+  if (!backendRepo) return;
+  const envPath = path.join(__dirname, backendRepo.path);
+  const envVars = loadEnv(envPath);
+  const apiUrl = process.env.NODE_ENV === 'production'
+    ? 'https://backend-prod.onrender.com/api'
+    : `http://localhost:${backendRepo.port}/api`;
+  const frontendEnv = `NEXT_PUBLIC_API_URL=${apiUrl}\n`;
+  const frontendEnvPath = path.join(__dirname, 'frontend', '.env.local');
+  fs.writeFileSync(frontendEnvPath, frontendEnv);
+  console.log(`✅ .env.local gerado para frontend com API_URL: ${apiUrl}`);
+}
+// Sincroniza dependências comuns
+function syncDependencies() {
+  const commonDeps = {
+    'react': '^19.2.4',
+    'next': '^16.2.4',
+    'axios': '^1.7.2'
+  };
+  repos.forEach(repo => {
+    const pkgPath = path.join(__dirname, repo.path, 'package.json');
+    if (fs.existsSync(pkgPath)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+      Object.keys(commonDeps).forEach(dep => {
+        if (pkg.dependencies && pkg.dependencies[dep]) {
+          pkg.dependencies[dep] = commonDeps[dep];
+        }
+        if (pkg.devDependencies && pkg.devDependencies[dep]) {
+          pkg.devDependencies[dep] = commonDeps[dep];
+        }
+      });
+      fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+      console.log(`✅ Dependências sincronizadas em ${repo.name}`);
+    }
+  });
+}
+// Inicia todos os serviços em paralelo (para desenvolvimento)
+function startAll() {
+  console.log('🚀 Iniciando todos os serviços...');
+  repos.forEach(repo => {
+    const repoPath = path.join(__dirname, repo.path);
+    console.log(`▶️  Iniciando ${repo.name} na porta ${repo.port}`);
+    execSync(`cd ${repoPath} && npm run dev`, { stdio: 'inherit', shell: true });
+  });
+}
+// Comandos
+const command = process.argv[2];
+switch (command) {
+  case 'gen-env':
+    generateFrontendEnv();
+    break;
+  case 'sync-deps':
+    syncDependencies();
+    break;
+  case 'start':
+    startAll();
+    break;
+  default:
+    console.log(`
+Uso:
+  node bridge.js gen-env      → Gera .env.local do frontend
+  node bridge.js sync-deps    → Sincroniza dependências comuns
+  node bridge.js start        → Inicia todos os serviços em modo desenvolvimento
+    `);
+}
