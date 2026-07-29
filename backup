@@ -1,0 +1,52 @@
+NEXT_PUBLIC_API_URL=http://localhost:8080
+ENVEOF
+# Helper: print and exit on error
+function die { echo "ERROR: $*"; exit 1; }
+# Check prerequisites
+command -v git >/dev/null || die "git is required"
+command -v gh >/dev/null || die "gh (GitHub CLI) is required and must be authenticated (run 'gh auth login')"
+# Confirm
+echo "This script will create branch '${BRANCH}' in: ${REPOS[*]}, add bridge.js, frontend/.env.example and update frontend package.json scripts."
+read -p "Proceed? (y/N): " ans
+if [[ "${ans,,}" != "y" ]]; then
+  echo "Aborted."
+  exit 0
+fi
+mkdir -p "${TMP_DIR}"
+cd "${TMP_DIR}"
+for repo in "${REPOS[@]}"; do
+  REPO_URL="${GIT_CLONE_URL}/${repo}.git"
+  REPO_DIR="${TMP_DIR}/${repo}"
+  echo
+  echo "=== Processing ${repo} ==="
+  if [ -d "${repo}" ]; then
+    echo "Using existing local dir ./${repo}"
+    REPO_DIR="$(pwd)/${repo}"
+  else
+    echo "Cloning ${REPO_URL} -> ${REPO_DIR}"
+    git clone --depth 1 "${REPO_URL}" "${REPO_DIR}" || { echo "Clone failed for ${repo}. Trying HTTPS..."; git clone --depth 1 "https://github.com/${OWNER}/${repo}.git" "${REPO_DIR}" || die "Failed to clone ${repo}"; }
+  fi
+  pushd "${REPO_DIR}" >/dev/null
+  # create/check out branch
+  if git rev-parse --verify "${BRANCH}" >/dev/null 2>&1; then
+    git checkout "${BRANCH}"
+  else
+    git checkout -b "${BRANCH}"
+  fi
+  # ensure scripts/ exists and backup originals if exist
+  mkdir -p scripts
+  if [ -f scripts/bridge.js ]; then
+    mkdir -p backups
+    ts=$(date +%Y%m%d%H%M%S)
+    mv scripts/bridge.js "backups/bridge.js.${ts}"
+    echo "Backup: scripts/bridge.js -> backups/bridge.js.${ts}"
+  fi
+  echo "${BRIDGE_JS}" > scripts/bridge.js
+  chmod +x scripts/bridge.js
+  git add scripts/bridge.js
+
+  
+
+
+
+  
